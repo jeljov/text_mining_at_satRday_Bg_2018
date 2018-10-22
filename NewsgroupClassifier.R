@@ -78,15 +78,16 @@ seed <- 1018
 
 # We’ll start by reading in 'cleaned' newsgroup posts. 
 # The 'cleaning' process consisted of removing some extra text that 
-# we do not need for the analysis. For example: 
+# we do not need for this analysis. For example: 
 # - every post has a header
 # - many also have automated email signatures 
 # - almost each post contains nested text representing quotes from other users
 # This extra text has been removed using some simple heuristics, and
 # the resulting 'cleaned' posts were saved in .csv files. 
 # If interested in the steps of the 'cleaning' process, check the 
-# classification script from the TM workshop (TM_Intro_Newsgroup_Classifier.R)
-# available at: https://github.com/jeljov/Text_Mining_at_LASI18
+# classification script from the LASI'18 TM workshop 
+# (TM_Intro_Newsgroup_Classifier.R) available at: 
+# https://github.com/jeljov/Text_Mining_at_LASI18
 # (N.B. data stored in the header of a post may be useful for
 # classification purposes; likewise, the content quoted from other 
 # posters might prove useful. However, in this case, we will restrict
@@ -96,6 +97,7 @@ seed <- 1018
 train_posts <- read.csv("data/2newsgroups-train.csv", 
                         stringsAsFactors = FALSE)
 str(train_posts)
+View(head(train_posts, 10))
 # Transform newsgroup into a factor variable, and use simpler labels
 train_posts$newsgroup <- factor(train_posts$newsgroup, 
                                 levels = unique(train_posts$newsgroup),
@@ -105,6 +107,7 @@ train_posts$newsgroup <- factor(train_posts$newsgroup,
 test_posts <- read.csv("data/2newsgroups-test.csv", 
                        stringsAsFactors = FALSE)
 str(test_posts)
+View(head(test_posts, 10))
 test_posts$newsgroup <- factor(test_posts$newsgroup, 
                                levels = unique(test_posts$newsgroup),
                                labels = c('guns', 'mideast'))
@@ -129,8 +132,7 @@ table(test_posts$newsgroup)
 # There are many packages in the R ecosystem for performing text analytics.
 # One of the latest is *quanteda*. It has many useful functions for quickly
 # and easily working with text data; they are well explained in the
-# quanteda docs:
-# http://docs.quanteda.io/index.html
+# quanteda docs: https://quanteda.io/
 library(quanteda)
 
 #
@@ -209,6 +211,13 @@ train_tokens[[9]]
 # (the function uses Porter's stemming algorithm) 
 train_tokens <- tokens_wordstem(train_tokens, language = "english")
 train_tokens[[9]]
+
+# In case you need lemmatisation for the task at hand,
+# consider using the *udpipe* R package:
+# https://github.com/bnosac/udpipe
+# as it offers language models for a number of languages 
+# (even for Serbian!) and using such models, you can 
+# lemmatise words
 
 ###################################
 # CREATE DOCUMENT TERM MATRIX (DTM)
@@ -341,13 +350,6 @@ rpart_cv_1 <- cross_validate_classifier(seed,
 rpart_cv_1
 plot(rpart_cv_1)
 
-# Since model building takes some time, save the model 
-# to have a quick access to it later
-saveRDS(rpart_cv_1, "models/rpart_cv_1.RData")
-
-# Load the saved model
-# rpart_cv_1 <- readRDS("models/rpart_cv_1.RData")
-
 # First, take the cp value of the best performing model in CV
 tfidf_best_cp <- rpart_cv_1$bestTune$cp
 # Then, extract performance measures for the best cp value 
@@ -418,6 +420,7 @@ train_dfm_2
 # Compute the overall (corpus) frequency for each term
 # (note that values in the dfm are TFs)
 dfm_2_tot_tf <- colSums(train_dfm_2)
+# there is also quanteda's function textstat_frequency()
 summary(dfm_2_tot_tf)
 # Again, very uneven distribution
 plot_word_weight_distr(wweights = dfm_2_tot_tf, 
@@ -477,12 +480,6 @@ rpart_cv_2 <- cross_validate_classifier(seed,
 
 rpart_cv_2
 plot(rpart_cv_2)
-
-# Save the model to have a quick access to it later
-saveRDS(rpart_cv_2, "models/rpart_cv_2.RData")
-
-# Load the saved model
-# rpart_cv_2 <- readRDS("models/rpart_cv_2.RData")
 
 # First, take the cp value of the best performing model in CV
 chi2_best_cp <- rpart_cv_2$bestTune$cp
@@ -615,8 +612,8 @@ train_svd_df <- cbind(Label = train_posts$newsgroup, data.frame(svd_res$v))
 ## see chapter 8.2 of the Introduction to Statistical Learning book
 ## http://www-bcf.usc.edu/~gareth/ISL/ 
 
-# We will build a RF model with 1000 trees. We'll also try different 
-# values of the mtry parameter to find the value that gives the best result. 
+# We will build a RF model with 1000 trees. We'll try different values of 
+# the mtry parameter to find the value that gives the best result. 
 # The mtry parameter stands for the number of features randomly sampled as 
 # candidates at each split. 
 # For the mtry parameter, we will consider 10 different values between the minimum
@@ -630,7 +627,7 @@ mtry_Grid <- expand.grid( .mtry = seq(from = 1, to = n_features, length.out = 10
 
 # NOTE: The following code takes a long time to run. Here is why:
 # We are performing 5-fold CV. That means we will examine each model configuration 
-# 5 times. We will have 10 configurations as we are asking caret to try 10 different
+# 5 times. We have 10 configurations as we are asking caret to try 10 different
 # values of the mtry parameter. In addition, we are asking RF to build 1000 trees. 
 # Lastly, when the best value for mtry is chosen, caret will use it to build the 
 # final model using all the training data. So, the number of trees we're building is:
@@ -674,7 +671,7 @@ comparison
 # The combined use of the new feature set and a more powerful algorithm significantly 
 # improved the results, including the reduction in the variability of the results 
 # (see SD values). In addition, the number of features is 10 - 12 times smaller than 
-# in the other two model; this is highly important as it makes the model less prone 
+# in the other two models; this is highly important as it makes the model less prone 
 # to overfitting.
 
 # We can check for the most important features, but that will not be very informative
@@ -733,7 +730,7 @@ test_dfm
 # that our classifier 'is aware of' (otherwise, it will report an error)
 # and that is the feature space of the training set.
 
-# Transform test_dfm so that it has the same features as the one that  
+# Transform test_dfm so that it has the same features as the dfm that  
 # was used to build features of our best classifier; in particular, 
 # it is the dfm that served as the input for SVD (train_dfm_2)
 test_dfm <- dfm_keep(test_dfm, pattern = train_dfm_2)
@@ -780,7 +777,7 @@ test_tfidf <- t(test_tfidf)
 ## APPLYING SVD PROJECTION ON A NEW DATA SET
 ##############################################
 
-# The formula to be used for this projection (for a particular document - d): 
+# The formula for projecting a particular document (d) to the SVD space: 
 #
 # d_hat = sigma_inverse * transposed_U_matrix %*% d_TF-IDF_vector
 #
@@ -791,7 +788,7 @@ test_tfidf <- t(test_tfidf)
 # Before applying this formula, let us examine why and how do we use it
 
 # As an example, let's use the first document from the training set, 
-# that is, the TF-IDF representation of the first post in the train set
+# that is, the TF-IDF representation of the first post in the training set
 example_doc <- as.matrix(train_dfm_2)[1,]
 
 # For convenience, we'll introduce:
@@ -803,7 +800,7 @@ example_doc_hat <- as.vector(sigma_inverse * u_transpose %*% example_doc)
 # Look at the first 10 components of projected document...
 example_doc_hat[1:10]
 # ... and the corresponding row in the document space produced by SVD (the V matrix)
-# v <- readRDS("models/svd/right_sv.Rdata") 
+# v <- readRDS("models/svd/right_sv.Rdata")
 # v[1,1:10]
 svd_res$v[1, 1:10]
 # The two vectors are almost identical (note the values are expressed in e-04, e-05,...).
@@ -816,8 +813,9 @@ cosine(example_doc_hat, svd_res$v[1,])  # v[1,]
 # It shows that using the above given formula, we can transform any document into
 # the singular vector space of the training set, using the computed sigma_inverse 
 # and transposed_U_matrix; this further means that we can take a new, unseen 
-# document (a post in our case), compute TF-IDF values for it and transform it 
-# into singular vector space so that it can be classified by our prediction model.
+# document (a post in our case), represent it as an TF-IDF weighted vector, and 
+# transform it into the singular vector space so that it can be classified by our 
+# prediction model.
 
 
 # So, we will use the above given formula to represent posts from the test set in 
@@ -832,7 +830,7 @@ dim(test_svd_hat)
 ###################################################
 
 # With the feature set ready, we can now build the test data frame to 
-# feed into our trained machine learning model for predictions. 
+# feed into our prediction model
 test_svd_df <- data.frame(Label = test_posts$newsgroup, 
                           t(test_svd_hat)) # need to transpose it, to place documents in rows
 
